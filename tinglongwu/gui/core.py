@@ -9,19 +9,20 @@ from __future__ import annotations
 import json
 import os
 import queue
+import sys
 from pathlib import Path
 
 from ..sink import Result, Sink
 from ..stream import DraftRenderer
 
 DEFAULTS = {
-    "lang": "auto", "target": "zh-tw", "engine": "auto", "model": "small", "glossary": "",
-    "save": False, "save_path": "", "show_src": False, "font_size": 28, "live_draft": True,
+    "lang": "auto", "target": "zh-tw", "engine": "ollama" if sys.platform == "darwin" else "auto", "model": "small", "glossary": "",
+    "save": False, "save_path": "", "show_src": True, "font_size": 28, "live_draft": True,
     "x": None, "y": None, "source": "system", "preset": "meeting", "overlay_lines": 4, "theme": "dark",
 }
 LANGS = ["auto", "ru", "ja", "en", "ko", "zh", "de", "fr", "es", "it", "pt", "vi", "th", "id"]
 TARGETS = ["zh-tw", "zh-cn", "en"]
-ENGINES = ["auto", "qwen", "qwen4b", "opus"]
+ENGINES = ["auto", "qwen", "qwen4b", "opus", "ollama", "fm"]
 PRESETS = ["meeting", "chat"]  # meeting = whole sentences (~5-8 s latency); chat = lower latency, more fragments
 SOURCES = ["system", "mic"]  # system = whatever the PC is playing (loopback); mic = microphone
 MODELS = ["tiny", "base", "small", "medium", "large-v3", "large-v3-turbo"]

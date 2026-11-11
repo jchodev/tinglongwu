@@ -46,11 +46,15 @@ def parse_args(argv=None):
     p.add_argument("--max-wait", type=float, default=None,
                    help="sentence merging: upper bound in seconds a fragment not ending in sentence punctuation "
                         "is held (default from --preset; a pause of >= 0.8 s sends it earlier)")
-    p.add_argument("--engine", choices=["auto", "qwen", "qwen4b", "opus", "m2m"], default="auto",
+    p.add_argument("--engine", choices=["auto", "qwen", "qwen4b", "opus", "m2m", "ollama", "fm"], default="auto",
                    help="auto (default): after Whisper loads, pick by free VRAM: Qwen3-8B (>=5.8 GB free), "
                         "else Qwen3-4B (>=3.5 GB), else OPUS (also on CPU); qwen = Qwen3-8B, qwen4b = Qwen3-4B "
                         "(direct src->target LLM, needs `tlwu-setup --qwen`); opus: src->en->target OPUS-MT; "
-                        "m2m: M2M-100 1.2B direct")
+                        "m2m: M2M-100 1.2B direct; ollama: a model served by local Ollama; fm: Apple's on-device model via the macOS 27 `fm` command (no model download)")
+    p.add_argument("--ollama-model", default=None, metavar="NAME",
+                   help="with --engine ollama: model name (env TLWU_OLLAMA_MODEL, default batiai/qwen3.5-9b:latest)")
+    p.add_argument("--ollama-url", default=None, metavar="URL",
+                   help="with --engine ollama: local server URL (env TLWU_OLLAMA_URL, default http://127.0.0.1:11434)")
     p.add_argument("--stream", action="store_true",
                    help="live drafts: while a segment is still being spoken, re-run Whisper on the growing "
                         "audio and translate the whole partial text at once; shows ONE dim line (the "
@@ -86,11 +90,23 @@ def parse_args(argv=None):
     return a
 
 
-def make_translator(engine: str, mdir, zh_variant: str, dev: str, say=print, choose=None):
+def make_translator(engine: str, mdir, zh_variant: str, dev: str, say=print, choose=None,
+                    ollama_model=None, ollama_url=None):
     """Pick and build the MT engine (called after Whisper is loaded so free VRAM is accurate)."""
     from .qwen import build_qwen_with_fallback, choose_engine
     from .translate import M2mTranslator, PivotTranslator
 
+    if engine == "ollama":
+        from .ollama import OllamaTranslator
+
+        tr = OllamaTranslator(ollama_model, ollama_url, zh_variant)
+        say(f"tlwu: translation engine = ollama ({tr.model} @ {tr.url})", file=sys.stderr)
+        return tr
+    if engine == "fm":
+        from .fm import FmTranslator
+
+        say("tlwu: translation engine = fm (Apple on-device model)", file=sys.stderr)
+        return FmTranslator(zh_variant)
     name, why = (choose or choose_engine)(engine, dev, mdir)
     if name in ("qwen3-8b", "qwen3-4b"):
         errors: list = []
@@ -185,7 +201,9 @@ def run_session(a, sink=None, draft_factory=None, stop=None, status=None, notice
     translator = None
     if not a.transcript_only:
         note("loading translation engine...")
-        translator = make_translator(a.engine, mdir, a.zh_variant, dev)
+        translator = make_translator(a.engine, mdir, a.zh_variant, dev,
+                                     ollama_model=getattr(a, "ollama_model", None),
+                                     ollama_url=getattr(a, "ollama_url", None))
         if glossary is not None:
             for t in (translator, getattr(translator, "base", None)):  # JaRouter wraps the OPUS pivot
                 if hasattr(t, "glossary"):

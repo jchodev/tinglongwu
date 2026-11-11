@@ -22,7 +22,7 @@ from .translate import Translation, Translator, zh_convert
 QWEN8B_MIN_FREE_MIB = 5800
 QWEN4B_MIN_FREE_MIB = 3500
 
-ENGINES = ("auto", "qwen", "qwen4b", "opus", "m2m")
+ENGINES = ("auto", "qwen", "qwen4b", "opus", "m2m", "ollama", "fm")
 
 
 @dataclass(frozen=True)
@@ -78,6 +78,8 @@ def choose_engine(requested: str, device: str, models_dir: Path, free_mib=free_v
     auto: cuda + free >= 8B threshold -> qwen3-8b; free >= 4B threshold -> qwen3-4b; else opus.
     A tier whose GGUF is not installed is skipped. Explicit engines are returned as asked.
     """
+    if requested in ("ollama", "fm"):
+        return requested, "requested"
     if requested == "opus":
         return "opus", "requested"
     if requested == "m2m":

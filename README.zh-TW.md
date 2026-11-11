@@ -143,6 +143,8 @@ tlwu-setup --whisper small --langs ru --to zh
 
 **Qwen LLM 引擎（預設 `--engine auto`）**：本機 Qwen3 模型（llama.cpp、Q4_K_M GGUF）直接由來源語言翻成中文（不經英文中介、關閉思考模式、防重複迴圈），再依 `--zh-variant` 以 OpenCC 轉換。準確度遠高於 OPUS，極短句也不會出現亂碼。`tlwu-setup --qwen` 會把 Qwen3-8B 與 Qwen3-4B（約 7.5 GB）下載到模型目錄；另需安裝 `llama-cpp-python`（CUDA 版）。`auto` 會在 Whisper 載入後檢查剩餘 VRAM：剩 5.8 GB 以上用 Qwen3-8B，3.5 GB 以上用 Qwen3-4B，否則用 OPUS（CPU 模式或 Qwen 載入失敗時亦同）；啟動時會印一行說明選了哪個引擎。可用 `--engine qwen`（8B）、`qwen4b`、`opus`、`m2m` 強制指定。
 
+**本機 Ollama 引擎（`--engine ollama`）與 Apple 內建模型引擎（`--engine fm`）**：用你已經在跑的模型翻譯，不必另外下載翻譯模型（語音辨識仍需 Whisper）。`ollama` 會把每句送到本機 Ollama 伺服器（只接受本機位址，預設 `http://127.0.0.1:11434`、預設模型 `batiai/qwen3.5-9b:latest`；可用 `--ollama-model` / `--ollama-url` 或環境變數 `TLWU_OLLAMA_MODEL` / `TLWU_OLLAMA_URL` 更改），並關閉思考模式。`fm` 呼叫 macOS 27 內建的 `fm respond`（僅 Apple silicon、只用本機模型，不用 Private Cloud Compute），第一次需執行 `sudo fm license`。兩者都沿用 Qwen 引擎的提示詞、上下文與詞彙表處理。macOS 上 GUI 預設引擎為 `ollama`。Mac 收系統聲音需要 BlackHole 2ch 與多重輸出裝置（喇叭 + BlackHole），並要讓啟動程式（Terminal、iTerm、PyCharm 等）擁有麥克風權限；用 `tlwu --gui` 開啟介面。實測（M 系列 Mac）：Ollama 9B 每句約 0.8–2.3 秒，`fm` 單獨約 1.4 秒，與 Whisper 同跑約 4 秒。
+
 
 #### 模型來源釘選
 
@@ -173,7 +175,7 @@ tlwu --to ko --no-vad --chunk 8        # target Korean via ru->en->ko (needs en-
 tlwu --file talk.mp3 --transcript-only > hyp.txt     # 只輸出原文，每段一行
 python scripts/wer.py ref.txt hyp.txt --lang ru --partial   # WER（中日用 CER）；--partial 對齊到最相符的參考片段並回報涵蓋率
 ```
-選項：`--model tiny|base|small|medium|large-v3|large-v3-turbo`、`--lang`、`--to`、`--preset meeting|chat`（預設 meeting）、`--chunk`（最長段落秒數，預設依 preset）、`--no-vad`、`--models-dir`、`--mic`、`--capture-device`（音訊裝置子字串）、`--device auto|cpu|cuda`（運算裝置）、`--engine auto|qwen|qwen4b|opus|m2m`、`--no-merge`、`--max-wait`（秒，預設依 preset）、`--stream`、`--stream-src`、`--debug-latency`。
+選項：`--model tiny|base|small|medium|large-v3|large-v3-turbo`、`--lang`、`--to`、`--preset meeting|chat`（預設 meeting）、`--chunk`（最長段落秒數，預設依 preset）、`--no-vad`、`--models-dir`、`--mic`、`--capture-device`（音訊裝置子字串）、`--device auto|cpu|cuda`（運算裝置）、`--engine auto|qwen|qwen4b|opus|m2m|ollama|fm`、`--ollama-model`、`--ollama-url`、`--no-merge`、`--max-wait`（秒，預設依 preset）、`--stream`、`--stream-src`、`--debug-latency`。
 
 **串流草稿**（`--stream`，預設關閉、實驗性）：句子還在說時，以 Whisper（greedy）重辨目前累積的音訊，並立刻翻譯整段暫時結果（沿用同一翻譯引擎），原地只顯示一行灰色譯文。`--stream-src` 另顯示原文行（已確認前綴正常亮度、其餘灰色；LocalAgreement 概念）。`--debug-latency` 於 stderr 記錄「段落音訊起點 → 第一次譯文草稿／最終行」秒數。段落結束後由正式輸出取代草稿。需互動式終端機（ANSI）；草稿讓位給正式 ASR/MT，會多吃 GPU；搭配 `--file` 時以真實速度播放。
 
